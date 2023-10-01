@@ -1,0 +1,459 @@
+###### Graph taxacount bathymetry (example of graphs, have made multiple for all variables of slope, bathymetry and habitat type)
+library(ggplot2)
+library(dplyr)
+# Read the CSV file
+data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\abundance_all_aug6.csv", sep=";")
+
+# Define the depth intervals
+depth_ranges <- c("Deep", "Medium", "Shallow")
+
+# Create a new variable for depth range
+data <- data %>%
+  mutate(DepthRange = cut(bathymetry, 
+                          breaks = c(-Inf, -200, -300, Inf),  # Use -Inf and Inf for minimum and maximum values
+                          labels = depth_ranges))
+
+# Group the data based on depth range and calculate the total number of unique image filenames
+data %>%
+  group_by(DepthRange) %>%
+  summarise(TotalVideostills = n_distinct(image_filename)) -> videostills_summary
+
+# Convert DepthRange to a factor with the correct order of levels
+videostills_summary$DepthRange <- factor(videostills_summary$DepthRange, levels = rev(depth_ranges))
+
+# Plot the bar plot
+ggplot(videostills_summary, aes(x = DepthRange, y = TotalVideostills)) +
+  geom_bar(stat = "identity", position = "dodge", fill = 'steelblue') +
+  labs(x = "Water Depth", y = "Total Number of Videostills", fill = "Depth Range") +
+  theme_minimal() +
+  theme(legend.position = "right", legend.title = element_blank())
+
+
+################ Jitter plot Slope
+# Load the necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Read the CSV file
+data <- read.csv("C:/Users/mulde/OneDrive/Bureaublad/camerastations_stills.csv", sep=";")
+
+
+# Find the two most extreme outliers (the images with the highest slope)
+outlier_images <- data %>%
+  arrange(desc(slope)) %>%
+  slice_head(n = 2) %>%
+  mutate(CameraStationCount = 1, Color = ifelse(row_number() == 1, "blue", "red"))
+
+# Calculate the count of camera stations for each slope value (excluding the outliers)
+camera_station_counts <- data %>%
+  anti_join(outlier_images, by = "image") %>%
+  group_by(slope) %>%
+  summarise(CameraStationCount = n(), Color = "black")
+
+# Create a new data frame with the required columns for rbind
+combined_data <- data.frame(slope = c(camera_station_counts$slope, outlier_images$slope),
+                            CameraStationCount = c(camera_station_counts$CameraStationCount, outlier_images$CameraStationCount),
+                            Color = c(camera_station_counts$Color, outlier_images$Color))
+
+# Plot the scatter plot with camera station counts on the y-axis and fill by image
+ggplot(combined_data, aes(x = slope, y = CameraStationCount, color = Color)) +
+  geom_jitter(size = 2) +
+  labs(x = "Slope", y = "Count",
+       color = "Legend Title") +
+  scale_color_manual(values = c("black", "blue", "red"),
+                     labels = c("Other", "2020-SA-2", "2019-SA-21")) +
+  guides(color = guide_legend(title = "Camera station")) +
+  theme_minimal()
+
+############## Graph taxacount habitat
+# Load required packages
+library(ggplot2)
+library(dplyr)
+
+# Read the CSV file
+data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\Data_all_July14.csv", sep=";")
+
+# Calculate total abundance per species and habitat
+agg_data <- data %>%
+  group_by(taxa, habitat) %>%
+  summarize(TotalAbundance = sum(abundance))
+
+# Define the colors for each level of the "taxa" variable
+colors <- c("Actiniaria" = "#8bd3c7", "Ascidians & Bryozoans" = "#7eb0d5", 
+            "Decapoda" = "#ff4530", "Nepthids" = "#a31c9c", "Solitary Tunicate" = "#fdcce5",
+            "Polychaete Tubes" = '#dbdb2b', "Porifera" = '#ff8c00')
+
+# Define the colors for each level of the "taxa" variable
+#colors <- c("Thin walled" = "#e2b51f", "Solid regular" = "#46c8b7", 
+#            "Leaf/Vase-Shape" = "#ff520d", "Irregular" = "#d42ebb")
+
+# Create the multiple bar chart with custom colors
+ggplot(agg_data, aes(x = habitat, y = TotalAbundance, fill = taxa)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(x = "Habitat", y = "Count", fill = "Taxa") +
+  theme_minimal() +
+  theme(
+    #axis.text.x = element_text(hjust = 1, vjust = 1),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.5, "cm"),
+    plot.title = element_text(size = 14, hjust = 0.5),
+    plot.margin = margin(0.5, 0.1, 1, 0.5, "cm")
+  ) +
+  # Use the scale_fill_manual function to set custom colors
+  scale_fill_manual(values = colors)
+
+
+############################ Graph videostills habitat
+# Load the packages
+library(ggplot2)
+library(dplyr)
+
+plot_data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\DATA_Excel_csv\\camerastations_stills.csv", sep=";")# pick some random points to stand-in as observation data
+
+video_data_agg <- plot_data %>%
+  group_by(habitat) %>%
+  summarise(stills_count = n())
+
+# Create a barplot using ggplot2 with the aggregated data
+ggplot(data = video_data_agg, aes(x = habitat, y = stills_count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "Habitat",
+       y = "Count") +
+  theme_minimal() +
+  theme(
+    #axis.text.x = element_text(hjust = 1, vjust = 1),
+    # Remove legend title
+    legend.text = element_text(size = 8),  # Adjust legend text size
+    legend.key.size = unit(0.5, "cm"),  # Adjust legend key size
+    plot.title = element_text(size = 14, hjust = 0.5),  # Adjust plot title size
+    plot.margin = margin(0.5, 0.1, 1, 0.5, "cm")  # Adjust plot margins
+  )
+
+
+############## Layback method
+#require(geosphere)
+library(geosphere)
+
+# read csv of start and end
+d<-read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\DATA_Excel_csv\\StartEndPos.csv", sep=";")
+
+# assuming lat/long find bearing - going backwards
+d$bearing <- bearing(d[c("EndLong","EndLat")], d[c("StartLong","StartLat")])
+d$distance <- distGeo(d[c("EndLong","EndLat")], d[c("StartLong","StartLat")])
+
+
+# find layback points using start / end pos, bearing and layback distance in metres
+# d$layback<-50 # or use station specific numbers if you have them
+# use trigonometry based on wire out & depth to estimate distance behind the vessel
+d$Layback <- (d$"Mean_Wirelength"^2-d$"Mean_Depth"^2)^0.5
+
+NewStart<-destPoint(d[c("StartLong","StartLat")], d$bearing, d$Layback)
+NewEnd<-destPoint(d[c("EndLong","EndLat")], d$bearing, d$Layback)
+
+d$LaybackStartLat<-NewStart[,2]
+d$LaybackStartLong<-NewStart[,1]
+d$LaybackEndLat<-NewEnd[,2]
+d$LaybackEndLong<-NewEnd[,1]
+d$NewDist<-distGeo(d[c("LaybackEndLong","LaybackEndLat")], d[c("LaybackStartLong","LaybackStartLat")])
+
+# write output
+write.csv(d, "C:\\Users\\mulde\\OneDrive\\Bureaublad\\StartEndPos-Layback_NEW.csv")
+
+####################### Get statistics (GLM) for each taxon
+library(tidyverse)
+library(MASS)
+library(broom)
+library(writexl)
+library(formattable)
+
+# Read the CSV file
+data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\Data_all_July14_all_habitat.csv", sep=";")
+
+# Function to fit GLM with Negative Binomial family for a single taxon
+fit_glm <- function(sub_data) {
+  glm_model <- glm.nb(abundance ~ bathymetry + slope + ruggedness, data = sub_data)
+  return(glm_model)
+}
+
+# Group the data by Taxon and fit separate GLMs for each taxon
+glm_results <- data %>%
+  group_by(taxa_1) %>%
+  nest() %>%
+  mutate(glm_model = map(data, fit_glm))
+
+# Function to extract and tidy the coefficients from the GLM model
+get_glm_coefficients <- function(glm_model) {
+  tidy(glm_model) %>%
+    mutate_if(is.numeric, function(x) {
+      formattable::comma(format(x, scientific = FALSE))
+    })
+}
+
+# Extract coefficients for each taxon
+coefficients_results <- glm_results %>%
+  mutate(coefficients = map(glm_model, get_glm_coefficients)) %>%
+  unnest(coefficients)
+
+# Export to Excel
+write_xlsx(coefficients_results, path = "C:\\Users\\mulde\\OneDrive\\Bureaublad\\coefficients_results_1.xlsx")
+
+############### Graph Spearman correlation
+# Load required libraries
+library(tidyverse)
+
+# Read the CSV file into a data frame
+data <- read.csv("C:/Users/mulde/OneDrive/Bureaublad/alles/abundance_all_aug6_samepixel_spearman.csv", sep=";")
+
+M <- cor(data, method="spearman")
+
+library(ggplot2)
+library(viridis)
+
+taxa_names <- rownames(M)
+M_df <- as.data.frame(as.table(M))
+colnames(M_df) <- c("taxa1", "taxa2", "correlation")
+
+ggplot(M_df, aes(x = taxa1, y = taxa2, fill = correlation)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "red", mid = "white", high = "darkgreen", 
+                       midpoint = 0, limits = c(-1, 1), 
+                       name = "Correlation") +
+  #scale_fill_viridis(name = "Spearman Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(labels = taxa_names) +
+  scale_y_discrete(labels = taxa_names)
+
+
+############### Statistics: Moran's I test
+# Load required libraries
+library(spatialreg)
+library(readr)
+library(sp)
+library(spdep)
+
+# Read the CSV data
+data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\abundance_all_Aug6_weighted.csv", sep=";")
+
+# Convert the data into a spatial object
+library(sp)
+coordinates(data) <- ~longitude + latitude
+
+# Create a k-nearest neighbor spatial weights matrix
+# Set k to the desired number of nearest neighbors
+# Here, I'll use k = 5 for illustration purposes, but you can adjust it accordingly.
+k <- 5
+listw <- knn2nb(knearneigh(coordinates(data), k = k))
+
+# Convert nb to listw
+listw <- nb2listw(listw)
+
+# Calculate Moran's I
+result <- moran.mc(data$total_abundance_weighted, listw, nsim = 999)
+
+# Print the results
+print(result)
+
+
+
+####################### Statistics: Overdispersion
+# Assuming 'count_data' is a vector or data frame containing your count data
+# Install and load the 'MASS' package (if not already installed)
+library(MASS)
+data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\abundance_all_Aug6_samepixel.csv", sep=";")
+
+# Fit a Poisson model
+poisson_model <- glm(data$total_abundance ~ 1, family = poisson())
+
+# Calculate Pearson residuals
+pearson_resid <- residuals(poisson_model, type = "pearson")
+
+# Compute the test statistic for overdispersion
+overdispersion_test_stat <- sum(pearson_resid^2) / (length(count_data) - 1)
+
+# Calculate the p-value for the test
+p_value <- 1 - pchisq(overdispersion_test_stat, df = length(count_data) - 1)
+
+# Print the test results
+print(paste("Test statistic for overdispersion:", overdispersion_test_stat))
+print(paste("p-value:", p_value))
+
+
+
+######################### Statistics: Shapiro-wilk normality & Kurtosis
+########################
+#shapiro-wilk test
+library(readr)
+data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\Data_all_July14_samepixel.csv", sep=";")
+
+# Convert data to a numeric vector
+numeric_data <- as.numeric(data$abundance)
+
+# Perform Shapiro-Wilk test for normality
+shapiro_test_result <- shapiro.test(numeric_data)
+
+# Print the test result
+print(shapiro_test_result)
+
+##########################
+#SKEW
+library(readr)
+library(e1071)  # For skewness function
+
+# Read the aggregated data from CSV
+data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\Data_all_July14_samepixel.csv", sep=";")
+
+# Extract the numeric data column (replace 'data_column_name' with the actual column name)
+numeric_data <- as.numeric(data$abundance)
+
+# Calculate skewness
+skew <- skewness(numeric_data)
+
+# Interpret skewness
+if (skew < 0) {
+  skewness_type <- "left-skewed"
+} else if (skew > 0) {
+  skewness_type <- "right-skewed"
+} else {
+  skewness_type <- "symmetric (close to 0)"
+}
+
+# Print the results
+cat("Skewness:", skew, "\n")
+cat("Interpretation:", skewness_type, "\n")
+
+######################
+#KURTOSIS
+library(readr)
+library(e1071)  # For kurtosis function
+
+# Read the aggregated data from CSV
+data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\Data_all_July14_samepixel.csv", sep=";")
+
+# Extract the numeric data column (replace 'data_column_name' with the actual column name)
+numeric_data <- as.numeric(data$abundance)
+
+# Calculate kurtosis
+kurt <- kurtosis(numeric_data)
+
+# Interpret kurtosis
+if (kurt > 0) {
+  kurtosis_type <- "leptokurtic (heavier tails, higher peak)"
+} else if (kurt < 0) {
+  kurtosis_type <- "platykurtic (lighter tails, flatter peak)"
+} else {
+  kurtosis_type <- "mesokurtic (similar to normal distribution)"
+}
+
+# Print the results
+cat("Kurtosis:", kurt, "\n")
+cat("Interpretation:", kurtosis_type, "\n")
+
+
+
+######################## Maxent Species Distribution Modeling
+Sys.setenv(PROJ_LIB = "C:/Users/mulde/AppData/Local/R/win-library/4.3/rgdal/proj")
+require(ENMeval)
+require(raster)
+require(maxnet)
+library(openxlsx)
+
+# read in stack of environmental layers
+setwd("C:/Users/mulde/OneDrive/Documenten/Greenland GCRC Thesis/Data/QGIS/temp")
+
+# Load the raster layers
+b <- raster("Bathymetry_25m_clip.tif")  # depth
+s <- raster("Slope_25m_clip.tif")  # slope
+r <- raster("Ruggedness_25m_clip.tif")  # ruggedness
+h <- raster("BS_Morpho_25m_clip.tif")  # habitat
+
+# Create a list of the raster layers
+layers <- list(b, s, r, h)
+
+# Determine the smallest extent among all layers
+smallest_extent <- extent(layers[[1]])
+for (i in 2:length(layers)) {
+  smallest_extent <- intersect(smallest_extent, extent(layers[[i]]))
+}
+
+# Set the extent of all layers to the smallest extent
+for (i in 1:length(layers)) {
+  layers[[i]] <- setExtent(layers[[i]], smallest_extent)
+}
+
+# Save the modified layers back to individual variables
+modified_b <- layers[[1]]
+modified_s <- layers[[2]]
+modified_r <- layers[[3]]
+modified_h <- layers[[4]]
+
+# Create a stack of the modified layers
+env <- stack(modified_b, modified_s, modified_r, modified_h)
+
+data <- read.csv("C:\\Users\\mulde\\OneDrive\\Bureaublad\\Data_ascidians.csv", sep=";")# pick some random points to stand-in as observation data
+x <- data[data$taxa == "Ascidians",]
+
+# Project the coordinates to a new CRS
+xyy <- proj4::project(x[c("longitude", "latitude")], crs(env))
+
+o <- data.frame(id = 1:nrow(x), x = xyy$x, y = xyy$y)
+
+# pick environmental data for these locations
+e<-raster::extract(env, o[c("x","y")])
+o<-cbind(o,e)
+# ditch stand-in records that have no data
+
+
+# pick environmental data for these locations
+e<-raster::extract(env, o[c("x","y")])
+o<-cbind(o,e)
+# ditch stand-in records that have no data
+o<-na.omit(o)
+
+# now look for the 'best' maxent model with these data
+# more details here https://www.rdocumentation.org/packages/ENMeval/versions/0.3.1/topics/ENMevaluate
+# the code below uses the default 10k randomly generated background points
+enm.res<-ENMeval::ENMevaluate(o[c("x","y")],env, algorithm='maxnet',
+                              method='randomkfold', 
+                              tune.args=list(fc = c("H", "L", "Q", "LQH"), rm = 1:3))
+
+# bg=bg[c("longitude","latitude")], 
+# view output stats - best is one with delta.aic=0
+View(enm.res@results)
+write.xlsx(enm.res@results, "C:\\Users\\mulde\\OneDrive\\Documenten\\Greenland GCRC Thesis\\Data\\QGIS\\habitat_maps_July14\\Bestmodel_output\\BestModel_output_ascidiansonly.xlsx", overwrite=TRUE)
+
+# pick best model
+best.model.n<-which (enm.res@results$delta.AICc == 0) 
+best.model<-enm.res@models[[best.model.n]]
+
+# plot output - with occurrence points
+plot(enm.res@predictions[[best.model.n]])
+points(enm.res@occs, pch=16)
+
+# look at response plots for the best model (how best model responds to variables)
+plot(enm.res@models[[best.model.n]], type="logistic")
+
+# save best model prediction to file
+writeRaster(enm.res@predictions[[best.model.n]], "C:/Users/mulde/OneDrive/Documenten/Greenland GCRC Thesis/Data/QGIS/habitat_maps_July14/BestModel_ascidiansonly.tif", overwrite=TRUE)
+
+
+###################### Threshod bestmodel
+# Load necessary libraries
+library(raster)
+
+#load raster layer
+raster_layer <- raster("C:/Users/mulde/OneDrive/Bureaublad/NIEUW/14aug/BestModel_ascidiansonly.tif")
+raster_layer_old <- raster("C:/Users/mulde/OneDrive/Documenten/Greenland GCRC Thesis/Data/QGIS/habitat_maps_July14/NEW_THRESHOLD_July24/SDM/")
+
+# Calculate the threshold for the specific species
+threshold <- quantile(raster_layer, probs = 0.9, na.rm = TRUE)
+
+# Apply thresholding to obtain binary predictions for the specific species
+binary_predictions <- raster_layer >= threshold
+
+output_path <- "C:/Users/mulde/OneDrive/Bureaublad/NIEUW/14aug/BestModel_ascidiansonly_threshold.tif"
+
+writeRaster(binary_predictions, filename = output_path, format = "GTiff")
+
+print(threshold)
+
